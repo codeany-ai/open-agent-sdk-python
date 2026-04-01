@@ -19,7 +19,7 @@ async def main():
     print("--- Example 1: Simple Query with Streaming ---\n")
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
+        # model is auto-resolved from CODEANY_MODEL env var
         max_turns=10,
     ))
 

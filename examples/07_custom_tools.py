@@ -65,7 +65,7 @@ async def main():
     custom_tools = [weather_tool, calculator_tool]
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
+        # model is auto-resolved from CODEANY_MODEL env var
         max_turns=10,
         tools=custom_tools,  # Custom tools are added alongside built-in tools
     ))

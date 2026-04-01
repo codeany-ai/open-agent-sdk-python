@@ -20,7 +20,7 @@ async def main():
     print("--- Example 2: Multi-Tool Orchestration ---\n")
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
+        # model is auto-resolved from CODEANY_MODEL env var
         max_turns=10,
         allowed_tools=["Glob", "Bash", "Read"],
     ))

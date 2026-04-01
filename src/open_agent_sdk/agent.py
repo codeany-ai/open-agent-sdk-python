@@ -38,14 +38,33 @@ class Agent:
         self._engine: QueryEngine | None = None
         self._initialized = False
 
+    def _resolve_model(self) -> str:
+        """Resolve model from options or CODEANY_MODEL env var."""
+        return (
+            self._options.model
+            or os.environ.get("CODEANY_MODEL", "")
+            or "claude-sonnet-4-5"
+        )
+
     def _ensure_client(self) -> anthropic.AsyncAnthropic:
         if self._client is None:
-            api_key = self._options.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+            # Resolve API key: options > CODEANY_API_KEY > ANTHROPIC_API_KEY
+            api_key = (
+                self._options.api_key
+                or os.environ.get("CODEANY_API_KEY", "")
+                or os.environ.get("ANTHROPIC_API_KEY", "")
+            )
+            # Resolve base URL: options > CODEANY_BASE_URL
+            base_url = (
+                self._options.base_url
+                or os.environ.get("CODEANY_BASE_URL", "")
+            )
+
             kwargs: dict[str, Any] = {}
             if api_key:
                 kwargs["api_key"] = api_key
-            if self._options.base_url:
-                kwargs["base_url"] = self._options.base_url
+            if base_url:
+                kwargs["base_url"] = base_url
             if self._options.custom_headers:
                 kwargs["default_headers"] = self._options.custom_headers
             self._client = anthropic.AsyncAnthropic(**kwargs)
@@ -106,7 +125,7 @@ class Agent:
 
         config = QueryEngineConfig(
             client=client,
-            model=opts.model,
+            model=opts.model or os.environ.get("CODEANY_MODEL", "") or "claude-sonnet-4-5",
             system_prompt=opts.system_prompt,
             append_system_prompt=opts.append_system_prompt,
             tools=self._tool_pool,

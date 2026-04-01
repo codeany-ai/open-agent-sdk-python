@@ -36,9 +36,8 @@ def get_or_create_agent() -> Agent:
     global _agent
     if _agent is None:
         _agent = Agent(AgentOptions(
-            model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
-            api_key=os.environ.get("CODEANY_API_KEY", os.environ.get("ANTHROPIC_API_KEY", "")),
-            base_url=os.environ.get("CODEANY_BASE_URL", ""),
+            # model, api_key, base_url are auto-resolved from
+            # CODEANY_MODEL, CODEANY_API_KEY, CODEANY_BASE_URL env vars
             max_turns=20,
         ))
     return _agent

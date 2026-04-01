@@ -19,7 +19,7 @@ async def main():
     print("--- Example 5: Custom System Prompt ---\n")
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
+        # model is auto-resolved from CODEANY_MODEL env var
         max_turns=5,
         system_prompt=(
             "You are a senior code reviewer. When asked to review code, focus on: "
