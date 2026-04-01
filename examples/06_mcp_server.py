@@ -24,7 +24,7 @@ async def main():
     print("--- Example 6: MCP Server Integration ---\n")
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5-20250514"),
+        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
         max_turns=10,
         mcp_servers={
             "filesystem": McpStdioConfig(

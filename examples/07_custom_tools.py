@@ -62,16 +62,15 @@ calculator_tool = define_tool(
 async def main():
     print("--- Example 7: Custom Tools ---\n")
 
-    builtin_tools = get_all_base_tools()
-    all_tools = [*builtin_tools, weather_tool, calculator_tool]
+    custom_tools = [weather_tool, calculator_tool]
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5-20250514"),
+        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
         max_turns=10,
-        tools=all_tools,
+        tools=custom_tools,  # Custom tools are added alongside built-in tools
     ))
 
-    print(f"Loaded {len(all_tools)} tools ({len(builtin_tools)} built-in + 2 custom)\n")
+    print(f"Loaded {len(get_all_base_tools())} built-in + {len(custom_tools)} custom tools\n")
 
     async for event in agent.query(
         "What is the weather in Tokyo and London? Also calculate 2**10 * 3. Be brief."

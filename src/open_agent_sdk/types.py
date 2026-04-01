@@ -325,7 +325,7 @@ class AgentDefinition:
 
 @dataclass
 class AgentOptions:
-    model: str = "claude-sonnet-4-5-20250514"
+    model: str = "claude-sonnet-4-5"
     api_key: str = ""
     base_url: str = ""
     cwd: str = ""

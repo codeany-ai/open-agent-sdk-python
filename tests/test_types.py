@@ -127,7 +127,7 @@ class TestEnums:
 class TestAgentOptions:
     def test_defaults(self):
         opts = AgentOptions()
-        assert opts.model == "claude-sonnet-4-5-20250514"
+        assert opts.model == "claude-sonnet-4-5"
         assert opts.max_turns == 10
         assert opts.max_tokens == 16000
         assert opts.permission_mode == PermissionMode.BYPASS_PERMISSIONS

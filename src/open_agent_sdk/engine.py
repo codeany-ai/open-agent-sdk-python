@@ -46,7 +46,7 @@ MAX_OUTPUT_RECOVERY_ATTEMPTS = 3
 @dataclass
 class QueryEngineConfig:
     client: anthropic.AsyncAnthropic
-    model: str = "claude-sonnet-4-5-20250514"
+    model: str = "claude-sonnet-4-5"
     system_prompt: str = ""
     append_system_prompt: str = ""
     tools: list[BaseTool] = field(default_factory=list)

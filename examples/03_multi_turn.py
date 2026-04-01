@@ -20,7 +20,7 @@ async def main():
     print("--- Example 3: Multi-Turn Conversation ---\n")
 
     agent = create_agent(AgentOptions(
-        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5-20250514"),
+        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5"),
         max_turns=5,
     ))
 

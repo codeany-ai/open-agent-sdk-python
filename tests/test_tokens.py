@@ -92,18 +92,18 @@ class TestGetTokenCountFromUsage:
 class TestContextWindowSize:
     def test_known_models(self):
         assert get_context_window_size("claude-opus-4-6") == 1_000_000
-        assert get_context_window_size("claude-sonnet-4-5-20250514") == 200_000
+        assert get_context_window_size("claude-sonnet-4-5") == 200_000
 
     def test_unknown_model(self):
         assert get_context_window_size("unknown-model") == 200_000
 
     def test_prefix_match(self):
-        assert get_context_window_size("claude-sonnet-4-5-20250514") == 200_000
+        assert get_context_window_size("claude-sonnet-4-5") == 200_000
 
 
 class TestAutoCompactThreshold:
     def test_basic(self):
-        threshold = get_auto_compact_threshold("claude-sonnet-4-5-20250514")
+        threshold = get_auto_compact_threshold("claude-sonnet-4-5")
         expected = 200_000 - AUTOCOMPACT_BUFFER_TOKENS
         assert threshold == expected
 
@@ -115,7 +115,7 @@ class TestAutoCompactThreshold:
 class TestEstimateCost:
     def test_sonnet(self):
         usage = TokenUsage(input_tokens=1_000_000, output_tokens=1_000_000)
-        cost = estimate_cost("claude-sonnet-4-5-20250514", usage)
+        cost = estimate_cost("claude-sonnet-4-5", usage)
         assert cost == pytest.approx(3.0 + 15.0, rel=0.01)
 
     def test_opus(self):
@@ -130,7 +130,7 @@ class TestEstimateCost:
             cache_creation_input_tokens=200_000,
             cache_read_input_tokens=300_000,
         )
-        cost = estimate_cost("claude-sonnet-4-5-20250514", usage)
+        cost = estimate_cost("claude-sonnet-4-5", usage)
         assert cost > 0
 
     def test_unknown_model_defaults(self):

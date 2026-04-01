@@ -43,7 +43,7 @@ def make_api_response(text="Hello!", tool_use=None, stop_reason="end_turn"):
     """Create a mock API response."""
     response = MagicMock()
     response.stop_reason = stop_reason
-    response.model = "claude-sonnet-4-5-20250514"
+    response.model = "claude-sonnet-4-5"
 
     content = []
     if text:

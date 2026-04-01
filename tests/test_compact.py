@@ -21,20 +21,20 @@ class TestShouldAutoCompact:
     def test_small_conversation_no_compact(self):
         messages = [{"role": "user", "content": "hello"}]
         state = create_auto_compact_state()
-        assert should_auto_compact(messages, "claude-sonnet-4-5-20250514", state) is False
+        assert should_auto_compact(messages, "claude-sonnet-4-5", state) is False
 
     def test_large_conversation_triggers_compact(self):
         # Create a message that would exceed the threshold
         large_text = "x" * 1_000_000  # ~250k tokens at 4 chars/token
         messages = [{"role": "user", "content": large_text}]
         state = create_auto_compact_state()
-        assert should_auto_compact(messages, "claude-sonnet-4-5-20250514", state) is True
+        assert should_auto_compact(messages, "claude-sonnet-4-5", state) is True
 
     def test_too_many_failures_disables(self):
         large_text = "x" * 1_000_000
         messages = [{"role": "user", "content": large_text}]
         state = AutoCompactState(consecutive_failures=3)
-        assert should_auto_compact(messages, "claude-sonnet-4-5-20250514", state) is False
+        assert should_auto_compact(messages, "claude-sonnet-4-5", state) is False
 
 
 class TestMicroCompact:

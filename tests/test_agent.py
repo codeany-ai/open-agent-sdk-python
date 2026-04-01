@@ -16,7 +16,7 @@ from open_agent_sdk.types import (
 def make_mock_response(text="Hello!", stop_reason="end_turn"):
     response = MagicMock()
     response.stop_reason = stop_reason
-    response.model = "claude-sonnet-4-5-20250514"
+    response.model = "claude-sonnet-4-5"
     text_block = MagicMock()
     text_block.type = "text"
     text_block.text = text
