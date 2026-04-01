@@ -368,15 +368,20 @@ python examples/web/server.py
 
 ## Examples
 
-| #   | File                                    | Description                            |
-| --- | --------------------------------------- | -------------------------------------- |
-| 01  | `examples/01_simple_query.py`           | Streaming query with event handling    |
-| 02  | `examples/02_multi_tool.py`             | Multi-tool orchestration (Glob + Bash) |
-| 03  | `examples/03_multi_turn.py`             | Multi-turn session persistence         |
-| 04  | `examples/04_custom_tools.py`           | Custom tools with Pydantic + `tool()`  |
-| 05  | `examples/05_permissions.py`            | Permission-based access control        |
-| 06  | `examples/06_session_persistence.py`    | Session save / resume / fork           |
-| web | `examples/web/`                         | Web chat UI for testing                |
+| #   | File                                    | Description                                     |
+| --- | --------------------------------------- | ----------------------------------------------- |
+| 01  | `examples/01_simple_query.py`           | Streaming query with event handling              |
+| 02  | `examples/02_multi_tool.py`             | Multi-tool orchestration (Glob + Bash)           |
+| 03  | `examples/03_multi_turn.py`             | Multi-turn session persistence                   |
+| 04  | `examples/04_prompt_api.py`             | Blocking `prompt()` API                          |
+| 05  | `examples/05_custom_system_prompt.py`   | Custom system prompt                             |
+| 06  | `examples/06_mcp_server.py`             | MCP server integration                           |
+| 07  | `examples/07_custom_tools.py`           | Custom tools with `define_tool()`                |
+| 08  | `examples/08_official_api_compat.py`    | `query()` API pattern                            |
+| 09  | `examples/09_subagents.py`              | Subagent delegation                              |
+| 10  | `examples/10_permissions.py`            | Read-only agent with tool restrictions           |
+| 11  | `examples/11_custom_mcp_tools.py`       | `tool()` + `create_sdk_mcp_server()`             |
+| web | `examples/web/`                         | Web chat UI for testing                          |
 
 Run any example:
 

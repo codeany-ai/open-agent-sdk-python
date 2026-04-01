@@ -1,29 +1,50 @@
-"""Simple query example - basic agent usage."""
+"""
+Example 1: Simple Query with Streaming
+
+Demonstrates the basic create_agent() + query() flow with real-time event streaming.
+
+Run: python examples/01_simple_query.py
+"""
 
 import asyncio
-from open_agent_sdk import Agent, AgentOptions, SDKMessageType
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from open_agent_sdk import create_agent, AgentOptions, SDKMessageType
 
 
 async def main():
-    agent = Agent(AgentOptions(
-        model="claude-sonnet-4-5-20250514",
-        # api_key="your-api-key",  # or set ANTHROPIC_API_KEY env var
+    print("--- Example 1: Simple Query with Streaming ---\n")
+
+    agent = create_agent(AgentOptions(
+        model=os.environ.get("CODEANY_MODEL", "claude-sonnet-4-5-20250514"),
+        max_turns=10,
     ))
 
-    # Streaming mode
-    print("=== Streaming Mode ===")
-    async for event in agent.query("What is 2 + 2? Reply briefly."):
+    async for event in agent.query("What files are in this directory? Use Glob to find them. Be brief."):
         if event.type == SDKMessageType.ASSISTANT:
-            print(f"Assistant: {event.text}")
-        elif event.type == SDKMessageType.RESULT:
-            print(f"\nResult: {event.text}")
-            print(f"Turns: {event.num_turns}, Cost: ${event.total_cost:.4f}")
+            msg = event.message
+            if isinstance(msg, dict):
+                for block in msg.get("content", []):
+                    if isinstance(block, dict):
+                        if block.get("type") == "text" and block.get("text", "").strip():
+                            print(block["text"])
+                        elif block.get("type") == "tool_use":
+                            print(f'[{block["name"]}] {str(block.get("input", {}))[:80]}')
 
-    # Convenience prompt mode
-    print("\n=== Prompt Mode ===")
-    result = await agent.prompt("What is the capital of France? Reply in one word.")
-    print(f"Answer: {result.text}")
-    print(f"Turns: {result.num_turns}, Duration: {result.duration_ms}ms")
+        elif event.type == SDKMessageType.TOOL_RESULT:
+            content = event.result_content or ""
+            print(f"  → {content[:120]}{'...' if len(content) > 120 else ''}")
+
+        elif event.type == SDKMessageType.RESULT:
+            usage = event.total_usage
+            print(f"\n--- {event.status} ---")
+            if usage:
+                print(f"Turns: {event.num_turns}, "
+                      f"Tokens: {usage.input_tokens} in / {usage.output_tokens} out, "
+                      f"Cost: ${event.total_cost:.4f}")
 
     await agent.close()
 
