@@ -122,7 +122,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from open_agent_sdk import create_agent, get_all_base_tools, AgentOptions
+from open_agent_sdk import create_agent, AgentOptions
 from open_agent_sdk.tool_helper import define_tool
 from open_agent_sdk.types import ToolResult, ToolContext
 
@@ -142,7 +142,7 @@ calculator = define_tool(
 )
 
 async def main():
-    agent = create_agent(AgentOptions(tools=[*get_all_base_tools(), calculator]))
+    agent = create_agent(AgentOptions(tools=[calculator]))
     r = await agent.prompt("Calculate 2**10 * 3")
     print(r.text)
     await agent.close()
@@ -260,7 +260,7 @@ python examples/web/server.py
 
 | Option               | Type                                | Default                       | Description                                                             |
 | -------------------- | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
-| `model`              | `str`                               | `claude-sonnet-4-5-20250514`  | LLM model ID                                                           |
+| `model`              | `str`                               | `claude-sonnet-4-5`           | LLM model ID (or set `CODEANY_MODEL` env var)                          |
 | `api_key`            | `str`                               | `CODEANY_API_KEY`             | API key                                                                 |
 | `base_url`           | `str`                               | —                             | Custom API endpoint                                                     |
 | `cwd`                | `str`                               | `os.getcwd()`                 | Working directory                                                       |
