@@ -8,6 +8,20 @@ Open-source Agent SDK that runs the full agent loop **in-process** — no subpro
 
 Also available in **TypeScript**: [open-agent-sdk-typescript](https://github.com/codeany-ai/open-agent-sdk-typescript) · **Go**: [open-agent-sdk-go](https://github.com/codeany-ai/open-agent-sdk-go)
 
+## Features
+
+- **Multi-Provider** — Anthropic + OpenAI-compatible APIs (DeepSeek, Qwen, vLLM, Ollama) via unified provider abstraction
+- **Agent Loop** — Streaming agentic loop with tool execution, multi-turn conversations, and cost tracking
+- **35 Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, Agent (subagents), Skill, and more
+- **Skill System** — Reusable prompt templates with 5 bundled skills (commit, review, debug, simplify, test)
+- **MCP Support** — Connect to MCP servers via stdio, HTTP, and SSE transports
+- **Permission System** — Configurable tool approval with allow/deny rules and custom callbacks
+- **Hook System** — 20 lifecycle events for agent behavior interception
+- **Session Persistence** — Save/load/fork conversation sessions
+- **Custom Tools** — Define tools with Pydantic models or raw JSON schemas
+- **Extended Thinking** — Claude thinking budget configuration
+- **Cost Tracking** — Per-model token usage with accurate pricing (Anthropic + OpenAI + DeepSeek + Qwen)
+
 ## Get started
 
 ```bash
@@ -54,10 +68,10 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from open_agent_sdk import create_agent
+from open_agent_sdk import create_agent, AgentOptions
 
 async def main():
-    agent = create_agent(AgentOptions(model="claude-sonnet-4-6"))
+    agent = create_agent(AgentOptions(model="claude-sonnet-4-5"))
     result = await agent.prompt("What files are in this project?")
 
     print(result.text)
@@ -84,6 +98,41 @@ async def main():
 
     print(f"Session messages: {len(agent.get_messages())}")
     await agent.close()
+
+asyncio.run(main())
+```
+
+### OpenAI-compatible models
+
+```python
+import asyncio
+from open_agent_sdk import create_agent, AgentOptions
+
+async def main():
+    # Auto-detects openai-completions from model prefix
+    agent = create_agent(AgentOptions(
+        model="gpt-4o",
+        api_key="sk-...",
+    ))
+    print(f"API type: {agent.get_api_type()}")  # openai-completions
+
+    result = await agent.prompt("What is 2+2?")
+    print(result.text)
+    await agent.close()
+
+    # DeepSeek, Qwen, etc.
+    agent2 = create_agent(AgentOptions(
+        model="deepseek-chat",
+        api_key="sk-...",
+        base_url="https://api.deepseek.com/v1",
+    ))
+
+    # Or explicit api_type
+    agent3 = create_agent(AgentOptions(
+        api_type="openai-completions",
+        model="my-custom-model",
+        base_url="http://localhost:8000/v1",
+    ))
 
 asyncio.run(main())
 ```
@@ -145,6 +194,37 @@ async def main():
     agent = create_agent(AgentOptions(tools=[calculator]))
     r = await agent.prompt("Calculate 2**10 * 3")
     print(r.text)
+    await agent.close()
+
+asyncio.run(main())
+```
+
+### Skills
+
+```python
+import asyncio
+from open_agent_sdk import create_agent, AgentOptions, SDKMessageType
+from open_agent_sdk.skills import register_skill, get_all_skills, init_bundled_skills, SkillDefinition
+from open_agent_sdk.types import ToolContext
+
+async def main():
+    # 5 bundled skills are auto-initialized: commit, review, debug, simplify, test
+    init_bundled_skills()
+    print(f"Skills: {[s.name for s in get_all_skills()]}")
+
+    # Register a custom skill
+    async def explain_prompt(args, ctx):
+        return [{"type": "text", "text": f"Explain simply: {args}"}]
+
+    register_skill(SkillDefinition(
+        name="explain", description="Explain a concept simply",
+        aliases=["eli5"], user_invocable=True, get_prompt=explain_prompt,
+    ))
+
+    # Agent can invoke skills via the Skill tool
+    agent = create_agent(AgentOptions(max_turns=5))
+    result = await agent.prompt('Use the "explain" skill to explain git rebase')
+    print(result.text)
     await agent.close()
 
 asyncio.run(main())
@@ -236,9 +316,13 @@ python examples/web/server.py
 | `query(prompt, options)`                  | One-shot streaming query, returns `AsyncGenerator`   |
 | `create_agent(options)`                   | Create a reusable agent with session persistence     |
 | `tool(name, desc, model, handler)`        | Create a tool with Pydantic schema validation        |
-| `create_sdk_mcp_server(name, tools)`      | Bundle tools into an in-process MCP server           |
 | `define_tool(name, ...)`                  | Low-level tool definition helper                     |
-| `get_all_base_tools()`                    | Get all 34 built-in tools                            |
+| `create_sdk_mcp_server(name, tools)`      | Bundle tools into an in-process MCP server           |
+| `create_provider(api_type, ...)`          | Create LLM provider (Anthropic or OpenAI)            |
+| `get_all_base_tools()`                    | Get all 35 built-in tools                            |
+| `register_skill(definition)`              | Register a custom skill                              |
+| `get_all_skills()`                        | List all registered skills                           |
+| `init_bundled_skills()`                   | Initialize 5 bundled skills                          |
 | `list_sessions()`                         | List persisted sessions                              |
 | `get_session_messages(id)`                | Retrieve messages from a session                     |
 | `fork_session(id)`                        | Fork a session for branching                         |
@@ -250,6 +334,7 @@ python examples/web/server.py
 | `await agent.query(prompt)`              | Streaming query, returns `AsyncGenerator[SDKMessage]`|
 | `await agent.prompt(text)`               | Blocking query, returns `QueryResult`               |
 | `agent.get_messages()`                   | Get conversation history                            |
+| `agent.get_api_type()`                   | Get resolved API type (`anthropic-messages` / `openai-completions`) |
 | `agent.clear()`                          | Reset session                                       |
 | `await agent.interrupt()`                | Abort current query                                 |
 | `await agent.set_model(model)`           | Change model mid-session                            |
@@ -261,12 +346,13 @@ python examples/web/server.py
 | Option               | Type                                | Default                       | Description                                                             |
 | -------------------- | ----------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
 | `model`              | `str`                               | `claude-sonnet-4-5`           | LLM model ID (or set `CODEANY_MODEL` env var)                          |
+| `api_type`           | `str`                               | auto                          | `anthropic-messages` or `openai-completions` (auto-detected from model) |
 | `api_key`            | `str`                               | `CODEANY_API_KEY`             | API key                                                                 |
 | `base_url`           | `str`                               | —                             | Custom API endpoint                                                     |
 | `cwd`                | `str`                               | `os.getcwd()`                 | Working directory                                                       |
 | `system_prompt`      | `str`                               | —                             | System prompt override                                                  |
 | `append_system_prompt` | `str`                             | —                             | Append to default system prompt                                         |
-| `tools`              | `list[BaseTool]`                    | All built-in                  | Available tools                                                         |
+| `tools`              | `list[BaseTool]`                    | All built-in                  | Additional custom tools                                                 |
 | `allowed_tools`      | `list[str]`                         | —                             | Tool allow-list                                                         |
 | `disallowed_tools`   | `list[str]`                         | —                             | Tool deny-list                                                          |
 | `permission_mode`    | `PermissionMode`                    | `bypassPermissions`           | `default` / `acceptEdits` / `dontAsk` / `bypassPermissions` / `plan`    |
@@ -296,6 +382,35 @@ python examples/web/server.py
 | `CODEANY_BASE_URL`   | Custom API endpoint                               |
 | `CODEANY_API_TYPE`   | `anthropic-messages` or `openai-completions`      |
 
+## Multi-provider support
+
+The SDK uses a unified provider abstraction. Internally all messages use Anthropic format as the canonical representation. The provider layer handles conversion automatically:
+
+```
+Your Code → Agent → QueryEngine → Provider Layer → LLM API
+                                       │
+                        ┌──────────────┴──────────────┐
+                        │   AnthropicProvider          │
+                        │   Direct pass-through        │
+                        ├─────────────────────────────┤
+                        │   OpenAIProvider             │
+                        │   Anthropic ↔ OpenAI format  │
+                        └─────────────────────────────┘
+```
+
+**Message format conversion (OpenAI provider):**
+
+| Anthropic (internal)                  | OpenAI (wire)                                    |
+| ------------------------------------- | ------------------------------------------------ |
+| `system` prompt string                | `{"role": "system", "content": "..."}`           |
+| `tool_use` content block              | `tool_calls[].function`                          |
+| `tool_result` content block           | `{"role": "tool", "tool_call_id": "..."}`        |
+| `stop_reason: "end_turn"`             | `finish_reason: "stop"`                          |
+| `stop_reason: "tool_use"`             | `finish_reason: "tool_calls"`                    |
+| `stop_reason: "max_tokens"`           | `finish_reason: "length"`                        |
+
+**Auto-detection**: Models starting with `gpt-`, `deepseek-`, `qwen-`, `o1-`, `o3-`, `o4-` automatically use `openai-completions`. Override with `api_type` option or `CODEANY_API_TYPE` env var.
+
 ## Built-in tools
 
 | Tool                                       | Description                                  |
@@ -310,6 +425,7 @@ python examples/web/server.py
 | **WebSearch**                              | Search the web                               |
 | **NotebookEdit**                           | Edit Jupyter notebook cells                  |
 | **Agent**                                  | Spawn subagents for parallel work            |
+| **Skill**                                  | Invoke registered skills by name             |
 | **TaskCreate/List/Update/Get/Stop/Output** | Task management system                       |
 | **TeamCreate/Delete**                      | Multi-agent team coordination                |
 | **SendMessage**                            | Inter-agent messaging                        |
@@ -323,7 +439,16 @@ python examples/web/server.py
 | **LSP**                                    | Language Server Protocol (code intelligence) |
 | **Config**                                 | Dynamic configuration                        |
 | **TodoWrite**                              | Session todo list                            |
-| **Skill**                                  | Invoke registered skills by name             |
+
+## Bundled skills
+
+| Skill        | Aliases              | Description                                              |
+| ------------ | -------------------- | -------------------------------------------------------- |
+| **commit**   | `ci`                 | Create git commit with well-crafted message              |
+| **review**   | `review-pr`, `cr`    | Review code changes for correctness, security, style     |
+| **debug**    | `investigate`, `diagnose` | Systematic debugging with structured investigation  |
+| **simplify** | —                    | Review changed code for reuse, quality, efficiency       |
+| **test**     | `run-tests`          | Run tests and analyze/fix failures                       |
 
 ## Architecture
 
@@ -336,7 +461,7 @@ python examples/web/server.py
                          │
               ┌──────────▼──────────┐
               │       Agent         │  Session state, tool pool,
-              │ query() / prompt()  │  MCP connections
+              │ query() / prompt()  │  MCP connections, skills
               └──────────┬──────────┘
                          │
               ┌──────────▼──────────┐
@@ -346,7 +471,6 @@ python examples/web/server.py
                          │
          ┌───────────────┼───────────────┐
          │               │               │
-   ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
    ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
    │ Providers │  │  35 Tools │  │    MCP     │
    │ Anthropic │  │ Bash,Read │  │  Servers   │
@@ -359,7 +483,9 @@ python examples/web/server.py
 
 | Component             | Description                                                      |
 | --------------------- | ---------------------------------------------------------------- |
+| **Provider layer**    | Anthropic + OpenAI-compatible (DeepSeek, Qwen, vLLM, Ollama)    |
 | **QueryEngine**       | Core agentic loop with auto-compact, retry, tool orchestration   |
+| **Skill system**      | 5 bundled skills (commit, review, debug, simplify, test) + custom |
 | **Auto-compact**      | Summarizes conversation when context window fills up             |
 | **Micro-compact**     | Truncates oversized tool results                                 |
 | **Retry**             | Exponential backoff for rate limits and transient errors         |
@@ -368,8 +494,6 @@ python examples/web/server.py
 | **Hook system**       | 20 lifecycle events (PreToolUse, PostToolUse, SessionStart, ...) |
 | **Session storage**   | Persist / resume / fork sessions on disk                         |
 | **Context injection** | Git status + AGENT.md automatically injected into system prompt  |
-| **Provider layer**    | Anthropic + OpenAI-compatible (DeepSeek, Qwen, vLLM, Ollama)    |
-| **Skill system**      | 5 bundled skills (commit, review, debug, simplify, test) + custom |
 
 ## Examples
 
@@ -420,24 +544,24 @@ open-agent-sdk-python/
 │   ├── providers/
 │   │   ├── types.py        # LLMProvider interface
 │   │   ├── anthropic_provider.py  # Anthropic implementation
-│   │   ├── openai_provider.py     # OpenAI-compatible implementation
+│   │   ├── openai_provider.py     # OpenAI-compatible (no SDK dependency)
 │   │   └── factory.py     # create_provider() factory
 │   ├── skills/
 │   │   ├── types.py        # SkillDefinition, SkillResult
 │   │   ├── registry.py     # Skill registry (register, lookup, format)
-│   │   └── bundled/        # 5 bundled skills
+│   │   └── bundled/        # 5 bundled skills (commit, review, debug, simplify, test)
 │   ├── mcp/
 │   │   └── client.py       # MCP client (stdio/SSE/HTTP)
-│   ├── tools/              # 34 built-in tools
+│   ├── tools/              # 35 built-in tools
 │   │   ├── bash.py, read.py, write.py, edit.py
 │   │   ├── glob_tool.py, grep.py, web_fetch.py, web_search.py
-│   │   ├── agent_tool.py, send_message.py, task_tools.py
-│   │   ├── team_tools.py, worktree_tools.py, plan_tools.py
-│   │   ├── cron_tools.py, lsp_tool.py, config_tool.py
-│   │   └── ...
+│   │   ├── agent_tool.py, skill_tool.py, send_message.py
+│   │   ├── task_tools.py, team_tools.py, worktree_tools.py
+│   │   ├── plan_tools.py, cron_tools.py, lsp_tool.py
+│   │   └── config_tool.py, todo_tool.py, ...
 │   └── utils/
 │       ├── messages.py     # Message creation & normalization
-│       ├── tokens.py       # Token estimation & cost calculation
+│       ├── tokens.py       # Token estimation & cost (Anthropic + OpenAI + DeepSeek + Qwen)
 │       ├── compact.py      # Auto-compaction logic
 │       ├── retry.py        # Exponential backoff retry
 │       ├── context.py      # Git & project context injection
