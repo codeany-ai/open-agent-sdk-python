@@ -289,11 +289,12 @@ python examples/web/server.py
 
 ### Environment variables
 
-| Variable             | Description            |
-| -------------------- | ---------------------- |
-| `CODEANY_API_KEY`    | API key (required)     |
-| `CODEANY_MODEL`      | Default model override |
-| `CODEANY_BASE_URL`   | Custom API endpoint    |
+| Variable             | Description                                       |
+| -------------------- | ------------------------------------------------- |
+| `CODEANY_API_KEY`    | API key (required)                                |
+| `CODEANY_MODEL`      | Default model override                            |
+| `CODEANY_BASE_URL`   | Custom API endpoint                               |
+| `CODEANY_API_TYPE`   | `anthropic-messages` or `openai-completions`      |
 
 ## Built-in tools
 
@@ -322,6 +323,7 @@ python examples/web/server.py
 | **LSP**                                    | Language Server Protocol (code intelligence) |
 | **Config**                                 | Dynamic configuration                        |
 | **TodoWrite**                              | Session todo list                            |
+| **Skill**                                  | Invoke registered skills by name             |
 
 ## Architecture
 
@@ -345,11 +347,12 @@ python examples/web/server.py
          ┌───────────────┼───────────────┐
          │               │               │
    ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
-   │  LLM API  │  │  34 Tools │  │    MCP     │
-   │  Client   │  │ Bash,Read │  │  Servers   │
-   │(streaming)│  │ Edit,...  │  │ stdio/SSE/ │
-   └───────────┘  └───────────┘  │ HTTP/SDK   │
-                                  └───────────┘
+   ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
+   │ Providers │  │  35 Tools │  │    MCP     │
+   │ Anthropic │  │ Bash,Read │  │  Servers   │
+   │  OpenAI   │  │ Edit,...  │  │ stdio/SSE/ │
+   │ DeepSeek  │  │ Skill,... │  │ HTTP/SDK   │
+   └───────────┘  └───────────┘  └───────────┘
 ```
 
 **Key internals:**
@@ -365,6 +368,8 @@ python examples/web/server.py
 | **Hook system**       | 20 lifecycle events (PreToolUse, PostToolUse, SessionStart, ...) |
 | **Session storage**   | Persist / resume / fork sessions on disk                         |
 | **Context injection** | Git status + AGENT.md automatically injected into system prompt  |
+| **Provider layer**    | Anthropic + OpenAI-compatible (DeepSeek, Qwen, vLLM, Ollama)    |
+| **Skill system**      | 5 bundled skills (commit, review, debug, simplify, test) + custom |
 
 ## Examples
 
@@ -381,6 +386,9 @@ python examples/web/server.py
 | 09  | `examples/09_subagents.py`              | Subagent delegation                              |
 | 10  | `examples/10_permissions.py`            | Read-only agent with tool restrictions           |
 | 11  | `examples/11_custom_mcp_tools.py`       | `tool()` + `create_sdk_mcp_server()`             |
+| 12  | `examples/12_skills.py`                 | Skill system usage (register, invoke, list)      |
+| 13  | `examples/13_hooks.py`                  | Lifecycle hook configuration and execution       |
+| 14  | `examples/14_openai_compat.py`          | OpenAI/compatible model support (DeepSeek, etc.) |
 | web | `examples/web/`                         | Web chat UI for testing                          |
 
 Run any example:
@@ -409,6 +417,15 @@ open-agent-sdk-python/
 │   ├── hooks.py            # Hook system (20 lifecycle events)
 │   ├── tool_helper.py      # Pydantic-based tool creation
 │   ├── sdk_mcp_server.py   # In-process MCP server factory
+│   ├── providers/
+│   │   ├── types.py        # LLMProvider interface
+│   │   ├── anthropic_provider.py  # Anthropic implementation
+│   │   ├── openai_provider.py     # OpenAI-compatible implementation
+│   │   └── factory.py     # create_provider() factory
+│   ├── skills/
+│   │   ├── types.py        # SkillDefinition, SkillResult
+│   │   ├── registry.py     # Skill registry (register, lookup, format)
+│   │   └── bundled/        # 5 bundled skills
 │   ├── mcp/
 │   │   └── client.py       # MCP client (stdio/SSE/HTTP)
 │   ├── tools/              # 34 built-in tools
@@ -425,8 +442,8 @@ open-agent-sdk-python/
 │       ├── retry.py        # Exponential backoff retry
 │       ├── context.py      # Git & project context injection
 │       └── file_cache.py   # LRU file state cache
-├── tests/                  # 220 tests
-├── examples/               # 6 examples + web UI
+├── tests/                  # 265 tests
+├── examples/               # 14 examples + web UI
 └── pyproject.toml
 ```
 

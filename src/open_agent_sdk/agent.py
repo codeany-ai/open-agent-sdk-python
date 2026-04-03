@@ -9,6 +9,8 @@ from typing import Any, AsyncGenerator
 
 import anthropic
 
+from open_agent_sdk.providers.types import LLMProvider
+from open_agent_sdk.providers.factory import create_provider
 from open_agent_sdk.engine import QueryEngine, QueryEngineConfig
 from open_agent_sdk.session import load_session, save_session
 from open_agent_sdk.tools import get_all_base_tools, filter_tools
@@ -35,8 +37,12 @@ class Agent:
         self._tool_pool: list[BaseTool] = []
         self._mcp_connections: list[MCPConnection] = []
         self._client: anthropic.AsyncAnthropic | None = None
+        self._provider: LLMProvider | None = None
         self._engine: QueryEngine | None = None
         self._initialized = False
+
+    # OpenAI-compatible model prefixes
+    _OPENAI_MODEL_PREFIXES = ("gpt-", "deepseek-", "qwen-", "o1-", "o3-", "o4-")
 
     def _resolve_model(self) -> str:
         """Resolve model from options or CODEANY_MODEL env var."""
@@ -46,28 +52,93 @@ class Agent:
             or "claude-sonnet-4-5"
         )
 
-    def _ensure_client(self) -> anthropic.AsyncAnthropic:
-        if self._client is None:
-            # Resolve API key: options > CODEANY_API_KEY > ANTHROPIC_API_KEY
-            api_key = (
-                self._options.api_key
-                or os.environ.get("CODEANY_API_KEY", "")
-                or os.environ.get("ANTHROPIC_API_KEY", "")
-            )
-            # Resolve base URL: options > CODEANY_BASE_URL
-            base_url = (
-                self._options.base_url
-                or os.environ.get("CODEANY_BASE_URL", "")
-            )
+    def get_api_type(self) -> str:
+        """Detect the API type from explicit config, env var, or model name.
 
-            kwargs: dict[str, Any] = {}
-            if api_key:
-                kwargs["api_key"] = api_key
-            if base_url:
-                kwargs["base_url"] = base_url
-            if self._options.custom_headers:
-                kwargs["default_headers"] = self._options.custom_headers
-            self._client = anthropic.AsyncAnthropic(**kwargs)
+        Returns 'anthropic-messages' or 'openai-completions'.
+        """
+        # Explicit option
+        if self._options.api_type:
+            return self._options.api_type
+
+        # Environment variable
+        env_type = os.environ.get("CODEANY_API_TYPE", "")
+        if env_type:
+            return env_type
+
+        # Auto-detect from model name
+        model = self._resolve_model()
+        for prefix in self._OPENAI_MODEL_PREFIXES:
+            if model.startswith(prefix):
+                return "openai-completions"
+
+        return "anthropic-messages"
+
+    def _ensure_provider(self) -> LLMProvider:
+        """Create or return the LLM provider."""
+        if self._provider is not None:
+            return self._provider
+
+        api_type = self.get_api_type()
+
+        # Resolve API key: options > CODEANY_API_KEY > ANTHROPIC_API_KEY / OPENAI_API_KEY
+        api_key = (
+            self._options.api_key
+            or os.environ.get("CODEANY_API_KEY", "")
+        )
+        if not api_key:
+            if api_type == "openai-completions":
+                api_key = os.environ.get("OPENAI_API_KEY", "")
+            else:
+                api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+        # Resolve base URL: options > CODEANY_BASE_URL
+        base_url = (
+            self._options.base_url
+            or os.environ.get("CODEANY_BASE_URL", "")
+        )
+
+        kwargs: dict[str, Any] = {}
+        if api_type == "anthropic-messages" and self._options.custom_headers:
+            kwargs["default_headers"] = self._options.custom_headers
+
+        self._provider = create_provider(
+            api_type,
+            api_key=api_key,
+            base_url=base_url,
+            **kwargs,
+        )
+        return self._provider
+
+    def _ensure_client(self) -> anthropic.AsyncAnthropic:
+        """Backward-compatible client accessor.
+
+        For Anthropic provider, returns the underlying client.
+        For other providers, creates a dummy client (not used in API calls).
+        """
+        if self._client is None:
+            provider = self._ensure_provider()
+            if hasattr(provider, "client"):
+                self._client = provider.client
+            else:
+                # Create a client for backward compat (e.g., compact_conversation)
+                api_key = (
+                    self._options.api_key
+                    or os.environ.get("CODEANY_API_KEY", "")
+                    or os.environ.get("ANTHROPIC_API_KEY", "")
+                )
+                base_url = (
+                    self._options.base_url
+                    or os.environ.get("CODEANY_BASE_URL", "")
+                )
+                kwargs: dict[str, Any] = {}
+                if api_key:
+                    kwargs["api_key"] = api_key
+                if base_url:
+                    kwargs["base_url"] = base_url
+                if self._options.custom_headers:
+                    kwargs["default_headers"] = self._options.custom_headers
+                self._client = anthropic.AsyncAnthropic(**kwargs)
         return self._client
 
     async def _initialize(self) -> None:
@@ -116,6 +187,7 @@ class Agent:
     ) -> AsyncGenerator[SDKMessage, None]:
         """Main agentic loop with streaming. Yields SDKMessage events."""
         await self._initialize()
+        provider = self._ensure_provider()
         client = self._ensure_client()
 
         opts = self._options
@@ -125,6 +197,7 @@ class Agent:
 
         config = QueryEngineConfig(
             client=client,
+            provider=provider,
             model=opts.model or os.environ.get("CODEANY_MODEL", "") or "claude-sonnet-4-5",
             system_prompt=opts.system_prompt,
             append_system_prompt=opts.append_system_prompt,

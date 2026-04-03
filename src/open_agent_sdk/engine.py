@@ -11,6 +11,8 @@ from typing import Any, AsyncGenerator
 
 import anthropic
 
+from open_agent_sdk.providers.types import CreateMessageParams, CreateMessageResponse, LLMProvider, NormalizedTool
+from open_agent_sdk.providers.anthropic_provider import AnthropicProvider
 from open_agent_sdk.types import (
     AgentOptions,
     BaseTool,
@@ -45,7 +47,8 @@ MAX_OUTPUT_RECOVERY_ATTEMPTS = 3
 
 @dataclass
 class QueryEngineConfig:
-    client: anthropic.AsyncAnthropic
+    client: anthropic.AsyncAnthropic | None = None
+    provider: LLMProvider | None = None
     model: str = "claude-sonnet-4-5"
     system_prompt: str = ""
     append_system_prompt: str = ""
@@ -66,11 +69,68 @@ class QueryEngineConfig:
     custom_headers: dict[str, str] = field(default_factory=dict)
 
 
+class _ContentBlockAdapter:
+    """Adapts a dict content block to look like an object with attributes."""
+
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+
+    @property
+    def type(self) -> str:
+        return self._data.get("type", "")
+
+    @property
+    def text(self) -> str:
+        return self._data.get("text", "")
+
+    @property
+    def id(self) -> str:
+        return self._data.get("id", "")
+
+    @property
+    def name(self) -> str:
+        return self._data.get("name", "")
+
+    @property
+    def input(self) -> Any:
+        return self._data.get("input", {})
+
+    @property
+    def thinking(self) -> str:
+        return self._data.get("thinking", "")
+
+
+class _UsageAdapter:
+    """Adapts a dict usage to look like an object with attributes."""
+
+    def __init__(self, data: dict[str, int]):
+        self.input_tokens = data.get("input_tokens", 0)
+        self.output_tokens = data.get("output_tokens", 0)
+        self.cache_creation_input_tokens = data.get("cache_creation_input_tokens", 0)
+        self.cache_read_input_tokens = data.get("cache_read_input_tokens", 0)
+
+
+class _ProviderResponseAdapter:
+    """Adapts CreateMessageResponse to match the duck-typed interface
+    that the rest of QueryEngine expects (same shape as anthropic SDK response)."""
+
+    def __init__(self, response: CreateMessageResponse, model: str):
+        self.content = [_ContentBlockAdapter(b) for b in response.content]
+        self.stop_reason = response.stop_reason
+        self.model = model
+        self.usage = _UsageAdapter(response.usage)
+
+
 class QueryEngine:
     """Core agentic loop with streaming events."""
 
     def __init__(self, config: QueryEngineConfig):
         self._config = config
+
+        # Auto-create provider from client for backward compatibility
+        if config.provider is None and config.client is not None:
+            config.provider = AnthropicProvider(client=config.client)
+
         self._messages: list[dict[str, Any]] = []
         self._total_usage = TokenUsage()
         self._total_cost: float = 0.0
@@ -300,49 +360,48 @@ class QueryEngine:
         system_prompt: str | list[dict[str, Any]],
         messages: list[dict[str, Any]],
     ) -> Any:
-        """Call Anthropic API with retry."""
+        """Call LLM API via provider with retry."""
         config = self._config
+        provider = config.provider
 
         # Build tool definitions for API
-        tools_api = []
+        tools_api: list[NormalizedTool] = []
         for tool in config.tools:
             schema = tool.input_schema
-            tools_api.append({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": schema.to_dict(),
-            })
+            tools_api.append(NormalizedTool(
+                name=tool.name,
+                description=tool.description,
+                input_schema=schema.to_dict(),
+            ))
 
-        kwargs: dict[str, Any] = {
-            "model": config.model,
-            "max_tokens": config.max_tokens,
-            "messages": messages,
-        }
+        system_str = system_prompt if isinstance(system_prompt, str) else ""
 
-        if isinstance(system_prompt, str):
-            kwargs["system"] = system_prompt
-        else:
-            kwargs["system"] = system_prompt
-
-        if tools_api:
-            kwargs["tools"] = tools_api
-
+        thinking_dict = None
         if config.thinking:
-            kwargs["thinking"] = {
+            thinking_dict = {
                 "type": config.thinking.type,
                 "budget_tokens": config.thinking.budget_tokens,
             }
 
-        if config.json_schema:
-            kwargs["response_format"] = {"type": "json_object", "schema": config.json_schema}
-
-        # Add extra args
-        kwargs.update(config.extra_args)
+        params = CreateMessageParams(
+            model=config.model,
+            max_tokens=config.max_tokens,
+            system=system_str,
+            messages=messages,
+            tools=tools_api if tools_api else [],
+            thinking=thinking_dict,
+        )
 
         async def _do_call():
-            return await config.client.messages.create(**kwargs)
+            return await provider.create_message(params)
 
-        return await with_retry(_do_call)
+        response = await with_retry(_do_call)
+
+        # Wrap CreateMessageResponse in a duck-typed object compatible with
+        # the rest of the engine (which expects response.content as list of
+        # objects with .type, .text, .id, .name, .input attributes, and
+        # response.stop_reason, response.model, response.usage)
+        return _ProviderResponseAdapter(response, config.model)
 
     async def _execute_tools(
         self,

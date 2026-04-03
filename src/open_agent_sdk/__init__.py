@@ -45,6 +45,19 @@ from open_agent_sdk.types import (
 # ─── Engine ──────────────────────────────────────────────────────────────────
 from open_agent_sdk.engine import QueryEngine, QueryEngineConfig
 
+
+# ─── Providers ───────────────────────────────────────────────────────────
+from open_agent_sdk.providers import (
+    ApiType,
+    CreateMessageParams,
+    CreateMessageResponse,
+    LLMProvider,
+    NormalizedTool,
+    AnthropicProvider,
+    OpenAIProvider,
+    create_provider,
+)
+
 # ─── Tool Helper ─────────────────────────────────────────────────────────────
 from open_agent_sdk.tool_helper import (
     CallToolResult,
@@ -100,6 +113,7 @@ from open_agent_sdk.tools import (
     LSPTool,
     ConfigTool,
     TodoWriteTool,
+    SkillTool,
     # Registry functions
     get_all_base_tools,
     filter_tools,
@@ -129,6 +143,22 @@ from open_agent_sdk.tools import (
     clear_config,
     get_todos,
     clear_todos,
+)
+
+# ─── Skills ──────────────────────────────────────────────────────────────────
+from open_agent_sdk.skills import (
+    SkillContentBlock,
+    SkillDefinition,
+    SkillResult,
+    register_skill,
+    get_skill,
+    get_all_skills,
+    get_user_invocable_skills,
+    has_skill,
+    unregister_skill,
+    clear_skills,
+    format_skills_for_prompt,
+    init_bundled_skills,
 )
 
 # ─── Session ─────────────────────────────────────────────────────────────────
@@ -213,6 +243,15 @@ __all__ = [
     # Engine
     "QueryEngine",
     "QueryEngineConfig",
+    # Providers
+    "ApiType",
+    "CreateMessageParams",
+    "CreateMessageResponse",
+    "LLMProvider",
+    "NormalizedTool",
+    "AnthropicProvider",
+    "OpenAIProvider",
+    "create_provider",
     # Types
     "AgentDefinition",
     "AgentOptions",
@@ -291,6 +330,7 @@ __all__ = [
     "LSPTool",
     "ConfigTool",
     "TodoWriteTool",
+    "SkillTool",
     # Registry
     "get_all_base_tools",
     "filter_tools",
@@ -377,4 +417,17 @@ __all__ = [
     "HookRegistry",
     "create_hook_registry",
     "HOOK_EVENTS",
+    # Skills
+    "SkillContentBlock",
+    "SkillDefinition",
+    "SkillResult",
+    "register_skill",
+    "get_skill",
+    "get_all_skills",
+    "get_user_invocable_skills",
+    "has_skill",
+    "unregister_skill",
+    "clear_skills",
+    "format_skills_for_prompt",
+    "init_bundled_skills",
 ]

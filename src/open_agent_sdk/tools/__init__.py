@@ -35,6 +35,7 @@ from open_agent_sdk.tools.cron_tools import CronCreateTool, CronDeleteTool, Cron
 from open_agent_sdk.tools.lsp_tool import LSPTool
 from open_agent_sdk.tools.config_tool import ConfigTool
 from open_agent_sdk.tools.todo_tool import TodoWriteTool
+from open_agent_sdk.tools.skill_tool import SkillTool
 
 # In-memory stores for task/team/plan/config/cron state
 _tasks: dict[str, dict[str, Any]] = {}
@@ -89,6 +90,7 @@ def get_all_base_tools() -> list[BaseTool]:
         LSPTool(),
         ConfigTool(),
         TodoWriteTool(),
+        SkillTool(),
     ]
 
 
@@ -264,6 +266,7 @@ __all__ = [
     "LSPTool",
     "ConfigTool",
     "TodoWriteTool",
+    "SkillTool",
     # Registry functions
     "get_all_base_tools",
     "filter_tools",
