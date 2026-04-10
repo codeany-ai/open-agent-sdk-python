@@ -75,6 +75,8 @@ async def with_retry(
     last_error: Exception | None = None
 
     for attempt in range(cfg.max_retries + 1):
+        if abort_signal is not None and hasattr(abort_signal, "is_set") and abort_signal.is_set():
+            raise RuntimeError("Aborted")
         try:
             return await fn()
         except Exception as e:
