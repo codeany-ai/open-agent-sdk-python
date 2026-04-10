@@ -211,6 +211,7 @@ class Agent:
             include_partial_messages=opts.include_partial_messages,
             thinking=opts.thinking,
             json_schema=opts.json_schema,
+            abort_signal=opts.abort_signal,
             debug=opts.debug,
             extra_args=opts.extra_args,
             betas=opts.betas,
@@ -260,9 +261,10 @@ class Agent:
         self._history.clear()
 
     async def interrupt(self) -> None:
-        """Abort current query."""
-        # Would need abort controller integration
-        pass
+        """Abort current query by setting the abort signal event."""
+        signal = self._options.abort_signal
+        if signal is not None and hasattr(signal, "set"):
+            signal.set()
 
     async def set_model(self, model: str) -> None:
         """Switch model during session."""

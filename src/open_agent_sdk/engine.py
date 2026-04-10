@@ -191,6 +191,12 @@ class QueryEngine:
             turns_remaining -= 1
             self._turn_count += 1
 
+            if config.abort_signal is not None and hasattr(config.abort_signal, "is_set") and config.abort_signal.is_set():
+                yield self._make_result_event(
+                    SDKResultStatus.ERROR_DURING_EXECUTION, start_time
+                )
+                return
+
             # Check budget
             if config.max_budget_usd and self._total_cost >= config.max_budget_usd:
                 yield self._make_result_event(
@@ -395,7 +401,7 @@ class QueryEngine:
         async def _do_call():
             return await provider.create_message(params)
 
-        response = await with_retry(_do_call)
+        response = await with_retry(_do_call, abort_signal=config.abort_signal)
 
         # Wrap CreateMessageResponse in a duck-typed object compatible with
         # the rest of the engine (which expects response.content as list of
@@ -409,7 +415,7 @@ class QueryEngine:
     ) -> list[ToolResult]:
         """Execute tool calls, concurrent for read-only, serial for mutations."""
         config = self._config
-        context = ToolContext(cwd=config.cwd, env=config.env)
+        context = ToolContext(cwd=config.cwd, env=config.env, abort_signal=config.abort_signal)
 
         # Partition into read-only (concurrent) and mutations (serial)
         read_only: list[dict[str, Any]] = []
