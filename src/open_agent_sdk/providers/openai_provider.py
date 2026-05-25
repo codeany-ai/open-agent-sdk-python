@@ -236,6 +236,10 @@ class OpenAIProvider:
         if message.get("content"):
             content.append({"type": "text", "text": message["content"]})
 
+        # Reasoning / thinking (e.g. nano-gpt returns message.reasoning)
+        if message.get("reasoning"):
+            content.append({"type": "thinking", "thinking": message["reasoning"]})
+
         # Tool calls
         for tc in (message.get("tool_calls") or []):
             func = tc.get("function", {})
